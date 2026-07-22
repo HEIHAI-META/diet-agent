@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>进食检测 Demo · A段（三因素）</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --ink:#1f2329; --mut:#8a919c;
+    --pri:#3b6fe0; --pri2:#2a55c0; --good:#1aa260; --warn:#e8a200; --bad:#e0533d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.5}
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  header h1{font-size:15px;margin:0;font-weight:600}
+  header .sub{color:var(--mut);font-size:12px}
+  .spacer{flex:1}
+  .seg{display:inline-flex;background:#eef1f5;border-radius:8px;padding:2px;gap:2px}
+  .seg button{border:0;background:transparent;padding:6px 12px;border-radius:6px;cursor:pointer;
+    font-size:13px;color:var(--mut)}
+  .seg button.on{background:var(--card);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .btn{border:1px solid var(--line);background:var(--card);padding:6px 12px;border-radius:8px;
+    cursor:pointer;font-size:13px;color:var(--ink)}
+  .btn:hover{border-color:var(--pri);color:var(--pri)}
+  .btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+  .btn.pri:hover{background:var(--pri2);color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .note{background:#fff8e6;border:1px solid #f0d488;color:#7a5a10;padding:8px 12px;margin:0 16px;
+    border-radius:8px;font-size:12px}
+  .note.live{background:#eef4ff;border-color:#b9d0ff;color:#1f3a7a}
+  main{padding:14px 16px;display:grid;grid-template-columns:330px 1fr;gap:14px;max-width:1140px}
+  @media(max-width:760px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .card h2{margin:0 0 10px;font-size:13px;color:var(--mut);font-weight:600;letter-spacing:.02em}
+  .field{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}
+  .field label{flex:1;font-size:13px}
+  .field .w{font-variant-numeric:tabular-nums;color:var(--mut);font-size:12px;min-width:54px;text-align:right}
+  select,input[type=range]{font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  input[type=range]{padding:0;width:120px}
+  .chk{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .chk .w{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--mut);font-size:12px}
+  .chk.on .w{color:var(--pri);font-weight:600}
+  .sec-title{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;
+    margin:14px 0 6px;border-top:1px dashed var(--line);padding-top:10px}
+  .gauge-wrap{display:flex;flex-direction:column;gap:12px}
+  .pval{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .pval .pct{font-size:20px;color:var(--mut);font-weight:600}
+  .pval .state{font-size:13px;color:var(--mut);font-weight:500;margin-left:8px;vertical-align:middle}
+  .bar{position:relative;height:24px;background:#eef1f5;border-radius:8px;overflow:hidden}
+  .bar .fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#7aa8ff,#3b6fe0);
+    transition:width .2s ease;border-radius:8px}
+  .ticks{position:relative;height:18px;margin-top:2px}
+  .tick{position:absolute;top:0;transform:translateX(-50%);font-size:11px;color:var(--mut);
+    display:flex;flex-direction:column;align-items:center;gap:1px}
+  .tick::before{content:"";width:1px;height:8px;background:var(--line)}
+  .tick.active{color:var(--ink);font-weight:700}
+  .tick.active::before{background:var(--ink);width:2px}
+  .breakdown{font-size:13px}
+  .br-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .br-row span:last-child{font-variant-numeric:tabular-nums}
+  .br-row.sum{font-weight:700;border-bottom:0;margin-top:4px;padding-top:8px;border-top:1px solid var(--line)}
+  .logs table{width:100%;border-collapse:collapse;font-size:12px}
+  .logs th,.logs td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .logs th{color:var(--mut);font-weight:600;font-size:11px}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px}
+  .pill.wait{background:#f0f1f3;color:var(--mut)}
+  .pill.yes{background:#e3f6ec;color:var(--good)}
+  .pill.no{background:#fde9e6;color:var(--bad)}
+  .pill.other{background:#eef0f6;color:var(--pri)}
+  details summary{cursor:pointer;color:var(--mut);font-size:11px}
+  details pre{font-size:11px;background:#f6f7f9;padding:8px;border-radius:6px;overflow:auto;margin:6px 0;max-height:240px}
+  .empty{color:var(--mut);font-size:13px;padding:12px 0}
+  .overlay{position:fixed;inset:0;background:rgba(20,24,30,.45);display:flex;align-items:center;
+    justify-content:center;z-index:20;padding:16px}
+  .overlay.hidden{display:none}
+  .modal{background:#fff;border-radius:14px;padding:20px;max-width:420px;width:100%;
+    box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .modal h3{margin:0 0 4px;font-size:16px}
+  .modal .mp{color:var(--mut);font-size:13px;margin-bottom:14px}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .opts label{border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;cursor:pointer;font-size:13px}
+  .opts input{display:none}
+  .opts label:hover{border-color:var(--pri)}
+  .opts input:checked + span{color:var(--pri);font-weight:600}
+  .opts label:has(input:checked){border-color:var(--pri);background:#eef4ff}
+  textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;
+    font-family:inherit;resize:vertical;min-height:64px}
+  .modal .act{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:12px}
+  .sig{display:flex;justify-content:space-between;gap:6px}
+  .sig .k{color:var(--mut)}
+  .sig .v{font-variant-numeric:tabular-nums}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mut);margin-right:4px;vertical-align:middle}
+  .dot.ok{background:var(--good)} .dot.no{background:var(--bad)}
+  .lv{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px}
+  .lvbar{flex:1;height:6px;background:#eef1f5;border-radius:3px;overflow:hidden}
+  .lvbar .f{height:100%;background:var(--pri)}
+  .tag{font-size:11px;padding:1px 6px;border-radius:8px;background:#eef1f5;color:var(--mut)}
+  .tag.on{background:#e3f6ec;color:var(--good)}
+  body.live .sim-only{display:none}
+  body:not(.live) .live-only{display:none}
+  .muted-block{opacity:.45;pointer-events:none}
+  .chew-badge{display:inline-block;margin:6px 0;padding:6px 16px;border-radius:20px;background:#e3f6ec;color:#1aa260;font-weight:700;font-size:13px;border:1px solid #b7e6cc;animation:chewpulse 1.1s ease-in-out infinite}
+  .chew-badge.hidden{display:none}
+  @keyframes chewpulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>进食检测 Demo · A段</h1>
+    <div class="sub">三因素加权占比 · P(Eating) · 模拟 / 真机</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="seg" id="modeSeg">
+    <button data-mode="sim" class="on">模拟</button>
+    <button data-mode="live">真机</button>
+  </div>
+  <span style="font-size:13px;color:var(--ink);font-weight:600;background:#eef1f5;padding:6px 12px;border-radius:8px">阈值 70%（固定）</span>
+</header>
+
+<div class="note sim-only">三因素：饭点 + 历史习惯 + 语音确认「吃饭了」。模拟模式：手动勾选，或用场景按钮一键播放。</div>
+<div class="note live live-only">真机模式：需在 <b>https://</b> 或 <b>http://localhost</b> 下打开。点"启动语音识别"——浏览器 Web Speech API 转写麦克风语音，命中文字发 /eating-check 由 GPT5.5 判断是否「吃饭了」类确认语。需 Chrome/Edge/Safari（支持 Web Speech API）。饭点按系统时间自动判定。</div>
+
+<main>
+  <section class="card">
+    <h2>传感器输入</h2>
+
+    <div class="live-only" style="margin-bottom:10px">
+      <button class="btn pri" id="startSensors" style="width:100%">启动语音识别</button>
+      <div id="sensorStatus" style="margin-top:8px;font-size:12px"></div>
+    </div>
+
+    <div class="sec-title sim-only">上下文 · 饭点 / 历史</div>
+    <div class="sec-title live-only">上下文 · 饭点 / 历史（真机自动）</div>
+    <div class="field" id="f_mealTime"><label>饭点时段</label>
+      <select id="mealTime" class="sim-only">
+        <option value="none">非饭点</option>
+        <option value="near">接近饭点</option>
+        <option value="in">饭点中</option>
+      </select>
+      <span class="w live-only" id="lv_mealTime"></span>
+      <span class="w sim-only" id="w_mealTime"></span>
+    </div>
+    <div class="chk" id="c_history"><label><input type="checkbox" id="history"> 符合历史习惯</label><span class="w"></span></div>
+
+    <div class="sec-title sim-only">实时证据 · Audio</div>
+    <div class="sec-title live-only">实时证据 · Audio（真机自动）</div>
+    <div class="chk" id="c_speechConfirm"><label><input type="checkbox" id="speechConfirm"> 听到「吃饭了」确认语</label><span class="w"></span></div>
+
+    <div class="sim-only" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn" id="playLunch">▶ 午餐</button>
+      <button class="btn" id="playDesk">▶ 办公</button>
+      <button class="btn" id="stop">■ 停</button>
+      <button class="btn" id="reset">重置</button>
+    </div>
+  </section>
+
+  <section class="card gauge-wrap">
+    <h2>融合推理结果</h2>
+    <div class="pval"><span id="pval">0</span><span class="pct">%</span><span class="state" id="state"></span></div>
+    <div id="chewBadge" class="chew-badge hidden">已确认：听到「吃饭了」</div>
+    <div>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="ticks" id="ticks"></div>
+    </div>
+
+    <div class="live-only">
+      <div class="sec-title" style="border-top:0;padding-top:0">实时原始信号</div>
+      <div id="liveSignals" class="sig-grid"></div>
+    </div>
+
+    <div class="sec-title">因素分解</div>
+    <div class="breakdown" id="breakdown"></div>
+
+    <div class="sec-title">触发记录（本地存储）</div>
+    <div class="logs">
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <button class="btn" id="export">导出 JSON</button>
+        <button class="btn" id="clear">清空记录</button>
+        <span class="w" style="margin-left:auto;align-self:center" id="logCount"></span>
+      </div>
+      <div id="logTable"></div>
+    </div>
+  </section>
+</main>
+
+<div class="overlay hidden" id="overlay">
+  <div class="modal">
+    <h3>检测到可能正在进食</h3>
+    <div class="mp" id="mpText"></div>
+    <div style="font-size:13px;margin-bottom:6px;color:var(--mut)">实际情况是？</div>
+    <div class="opts" id="opts">
+      <label><input type="radio" name="st" value="eating"><span>正在吃饭</span></label>
+      <label><input type="radio" name="st" value="not"><span>没在吃饭</span></label>
+      <label><input type="radio" name="st" value="just"><span>刚吃完</span></label>
+      <label><input type="radio" name="st" value="about"><span>即将吃</span></label>
+    </div>
+    <div style="font-size:11px;color:var(--mut);margin-bottom:6px">选"正在吃饭"会打开相机拍照记录</div>
+    <textarea id="notes" placeholder="备注：吃了什么、份量、地点……（可选）"></textarea>
+    <div class="act">
+      <button class="btn" id="skip">暂不回复</button>
+      <button class="btn pri" id="submit">提交</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ---------- 权重（纯占比，直接相加，上限 100%）----------
+// 三因素：饭点 + 历史习惯 + 语音确认「吃饭了」。无先验/后验、无 log-odds、无 sigmoid。
+// 语音确认主导，单独 75% 即过 70% 阈值；饭点+历史上限 50% 不触发。
+const WEIGHTS = {
+  mealTime:    { none:0, near:25, in:40 },   // 时间：饭点为上下文，单独不触发
+  history:     10,                            // 历史：轻微加分（最弱）
+  speechConfirm: 75                           // 语义确认（GPT5.5），单独即可触发
+  // 摄像头场景属 B段（同意后采集），A段不接入；心率/动作/地点/停留已移除
+};
+const THRESHOLDS = [70];
+const COOLDOWN_MS = 30*60*1000; // 真机触发后冷却 30 分钟，一次进餐只提示一次
+
+const $ = id => document.getElementById(id);
+
+// ---------- 模式 / 状态 ----------
+let mode = "sim";
+let activeThr = 70;
+let armed = true;
+let cooldownUntil = 0;          // 触发冷却到期时间戳；冷却期内不再触发
+let pendingId = null;
+function cooldownMs(){ return mode==="sim" ? 15000 : COOLDOWN_MS; } // 模拟 15s 便于测试，真机 30 分钟
+
+const live = {
+  active:false,
+  audio:{
+    ok:false, sr:null, recognizing:false, interim:"",
+    speechConfirmed:false, lastPhrase:"", lastTranscript:"", lastError:"", sending:false, lastResultTs:0
+  }
+};
+
+// ---------- 输入 ----------
+const inputs = {
+  mealTime:$("mealTime"), history:$("history"), speechConfirm:$("speechConfirm")
+};
+
+function deriveMealTime(d){
+  const h = d.getHours()+d.getMinutes()/60;
+  const in_ = (a,b)=> h>=a && h<=b;
+  if(in_(7,9)||in_(11,13)||in_(17,19)) return "in";
+  if(in_(6,7)||in_(10,11)||in_(16,17)) return "near";
+  return "none";
+}
+const MEAL_LABEL = { none:"非饭点", near:"接近饭点", in:"饭点中" };
+
+function readState(){
+  if(mode==="live"){
+    return {
+      mealTime: deriveMealTime(new Date()),
+      history: inputs.history.checked,
+      speechConfirm: live.audio.speechConfirmed
+    };
+  }
+  return {
+    mealTime: inputs.mealTime.value,
+    history: inputs.history.checked,
+    speechConfirm: inputs.speechConfirm.checked
+  };
+}
+
+// ---------- 加权占比 ----------
+function compute(s){
+  const items = [];
+  const mt = WEIGHTS.mealTime[s.mealTime]; if(mt) items.push({k:"饭点时段", w:mt});
+  if(s.history) items.push({k:"符合历史习惯", w:WEIGHTS.history});
+  if(s.speechConfirm) items.push({k:"听到「吃饭了」确认语", w:WEIGHTS.speechConfirm});
+  const raw = items.reduce((a,b)=>a+b.w,0);
+  const p = Math.min(100, raw);
+  return { items, raw, p };
+}
+
+// ---------- 渲染 ----------
+function fmtPct(p){ return Math.round(p); }
+function fmtW(w){ return (w>=0?"+":"")+w+"%"; }
+
+function render(){
+  const s = readState();
+  const r = compute(s);
+  const p = r.p;
+
+  $("pval").textContent = fmtPct(p);
+  $("chewBadge").classList.toggle("hidden", !s.speechConfirm);
+
+  if(mode==="live"){
+    $("lv_mealTime").textContent = MEAL_LABEL[s.mealTime];
+  }
+  $("w_mealTime").textContent = fmtW(WEIGHTS.mealTime[s.mealTime]);
+
+  const chkMap = {history:WEIGHTS.history, speechConfirm:WEIGHTS.speechConfirm};
+  for(const k of Object.keys(chkMap)){
+    const row = $("c_"+k); if(!row) continue;
+    row.classList.toggle("on", s[k]);
+    row.querySelector(".w").textContent = s[k]?fmtW(chkMap[k]):"";
+    const cb = row.querySelector("input[type=checkbox]");
+    if(cb && mode==="live" && k==="speechConfirm"){
+      cb.checked = s[k];
+    }
+  }
+
+  $("fill").style.width = p+"%";
+  const stEl = $("state");
+  const nowMs = Date.now();
+  if(nowMs < cooldownUntil){
+    const rem = cooldownUntil - nowMs;
+    stEl.textContent = rem >= 60000 ? `· 冷却中（剩 ${Math.ceil(rem/60000)} 分钟）` : `· 冷却中（剩 ${Math.ceil(rem/1000)} 秒）`;
+  } else if(p >= activeThr) stEl.textContent = "· 已达触发阈值";
+  else if(p >= activeThr-25) stEl.textContent = "· 接近阈值";
+  else stEl.textContent = "";
+
+  const bd = $("breakdown");
+  let html = "";
+  for(const it of r.items) html += `<div class="br-row"><span>${it.k}</span><span>${fmtW(it.w)}</span></div>`;
+  html += `<div class="br-row"><span>合计</span><span>${r.raw}%</span></div>`;
+  html += `<div class="br-row sum"><span>P(Eating)${r.raw>100?"（上限 100%）":""}</span><span>${fmtPct(p)}%</span></div>`;
+  bd.innerHTML = html;
+
+  const nowTrig = Date.now();
+  if(p >= activeThr && armed && pendingId===null && nowTrig >= cooldownUntil){
+    fireTrigger(p, r, s); armed=false; cooldownUntil = nowTrig + cooldownMs();
+  }
+  if(p < activeThr - 3) armed = true;
+}
+
+function renderLiveSignals(){
+  if(mode!=="live") return;
+  const a = live.audio;
+  const dot = (ok)=>`<span class="dot ${ok?'ok':'no'}"></span>`;
+  const sigs = [
+    [`语音 ${dot(a.ok)}`, a.ok? `${a.recognizing?"识别中":"已启动"}${a.sending?" ·判断中":""}` : "未启动"],
+    [`临时转写`, a.interim? `"${a.interim.slice(0,16)}"` : "—"],
+    [`最终转写`, a.lastTranscript? `"${a.lastTranscript.slice(0,16)}"` : "—"],
+    [`语音确认`, a.speechConfirmed? `是「${a.lastPhrase||"吃饭了"}」` : (a.lastError? `否(${a.lastError.slice(0,18)})` : "否")]
+  ];
+  $("liveSignals").innerHTML = sigs.map(([k,v])=>`<div class="sig"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+}
+
+// ---------- 阈值 ----------
+function buildTicks(){
+  $("ticks").innerHTML = THRESHOLDS.map(t =>
+    `<div class="tick ${t===activeThr?'active':''}" style="left:${t}%">${t}%</div>`).join("");
+}
+// 阈值固定 70%，不可切换
+
+// ---------- 模式切换 ----------
+$("modeSeg").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  mode=b.dataset.mode;
+  [...$("modeSeg").children].forEach(c=>c.classList.toggle("on", c.dataset.mode===mode));
+  document.body.classList.toggle("live", mode==="live");
+  cooldownUntil=0; armed=true; render(); if(mode==="live") renderLiveSignals();
+});
+
+// ---------- 触发 / 日志（与模拟版一致）----------
+const STORE_KEY="eatingDemo.triggers.v3";
+let triggers=[];
+try{ triggers=JSON.parse(localStorage.getItem(STORE_KEY)||"[]"); }catch(e){ triggers=[]; }
+function saveStore(){ localStorage.setItem(STORE_KEY, JSON.stringify(triggers)); }
+
+// ---------- 触发后流程：震动 + 语音 + 拍照 ----------
+const PROMPT_TEXT = "是在吃东西吗？拍张照片记录一下吧";
+const sessionPhotos = {}; // triggerId -> blobURL（仅本次会话，不持久化）
+function vibrate3(){ if(navigator.vibrate) navigator.vibrate([180,120,180,120,180]); }
+let zhVoice=null;
+function pickZhVoice(){
+  if(!("speechSynthesis" in window)) return;
+  const vs=speechSynthesis.getVoices();
+  zhVoice = vs.find(v=>/zh|cmn/i.test(v.lang)) || vs.find(v=>/Chinese|中文|普通话/i.test(v.name)) || null;
+}
+if("speechSynthesis" in window){ pickZhVoice(); speechSynthesis.onvoiceschanged=pickZhVoice; }
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang="zh-CN"; if(zhVoice) u.voice=zhVoice; u.rate=0.95;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+const camInput=document.createElement("input");
+camInput.type="file"; camInput.accept="image/*"; camInput.capture="environment"; camInput.style.display="none";
+document.body.appendChild(camInput);
+let camForTriggerId=null;
+function openCamera(id){ camForTriggerId=id; camInput.value=""; camInput.click(); }
+camInput.addEventListener("change", ()=>{
+  const f=camInput.files && camInput.files[0];
+  if(f && camForTriggerId){
+    const url=URL.createObjectURL(f);
+    sessionPhotos[camForTriggerId]=url;
+    const rec=triggers.find(t=>t.id===camForTriggerId);
+    if(rec){ rec.photoTaken=true; saveStore(); }
+    renderLogs();
+  }
+  camForTriggerId=null; camInput.value="";
+});
+
+function fireTrigger(p, r, s){
+  const id="t_"+Date.now()+"_"+Math.floor(performance.now());
+  const rec={
+    id, triggerTime:new Date().toISOString(),
+    p:Math.round(p), raw:r.raw, threshold:activeThr, mode,
+    items:r.items.map(it=>({k:it.k,w:it.w})),
+    sensorSnapshot:{ ...s },
+    liveSnapshot: mode==="live"? {
+      audio:{phrase:live.audio.lastPhrase||"",confirmed:live.audio.speechConfirmed}
+    } : null,
+    response:null, responseTime:null, status:null, notes:"", photoTaken:false
+  };
+  triggers.unshift(rec); saveStore(); renderLogs(); openPrompt(rec); vibrate3(); speak(PROMPT_TEXT);
+}
+function openPrompt(rec){
+  pendingId=rec.id;
+  $("mpText").innerHTML=`P(Eating) = <b>${rec.p}%</b>　阈值 ${rec.threshold}%　时间 ${new Date(rec.triggerTime).toLocaleTimeString()}`;
+  document.querySelectorAll('#opts input').forEach(i=>i.checked=false);
+  $("notes").value=""; $("overlay").classList.remove("hidden");
+}
+function closePrompt(){ $("overlay").classList.add("hidden"); pendingId=null; }
+$("submit").addEventListener("click", ()=>{
+  const sel=document.querySelector('#opts input:checked');
+  const status=sel?sel.value:null, notes=$("notes").value.trim();
+  const id=pendingId;
+  const rec=triggers.find(t=>t.id===id);
+  if(rec){ rec.response="answered"; rec.responseTime=new Date().toISOString(); rec.status=status; rec.notes=notes; saveStore(); }
+  closePrompt(); renderLogs();
+  if(status==="eating" && id){ openCamera(id); }
+});
+$("skip").addEventListener("click", ()=>{
+  const rec=triggers.find(t=>t.id===pendingId);
+  if(rec){ rec.response="skipped"; rec.responseTime=new Date().toISOString(); saveStore(); }
+  closePrompt(); renderLogs();
+});
+const STATUS_LABEL={eating:"正在吃饭",not:"没在吃饭",just:"刚吃完",about:"即将吃"};
+function statusPill(rec){
+  if(rec.response==="answered"&&rec.status){
+    const cls=rec.status==="eating"?"yes":rec.status==="not"?"no":"other";
+    return `<span class="pill ${cls}">${STATUS_LABEL[rec.status]}</span>`;
+  }
+  if(rec.response==="skipped") return `<span class="pill wait">已跳过</span>`;
+  return `<span class="pill wait">待回复</span>`;
+}
+function renderLogs(){
+  $("logCount").textContent=`共 ${triggers.length} 条`;
+  const el=$("logTable");
+  if(!triggers.length){ el.innerHTML=`<div class="empty">还没有触发记录。</div>`; return; }
+  let html=`<table><thead><tr><th>触发时间</th><th>P</th><th>阈值</th><th>模式</th><th>实际情况</th><th>备注</th><th></th></tr></thead><tbody>`;
+  for(const r of triggers){
+    const t=new Date(r.triggerTime).toLocaleString();
+    let note=r.notes?r.notes.replace(/</g,"&lt;"):`<span style="color:var(--mut)">—</span>`;
+    if(sessionPhotos[r.id]) note+=`<br><a href="${sessionPhotos[r.id]}" target="_blank"><img src="${sessionPhotos[r.id]}" style="max-width:60px;max-height:60px;border-radius:4px;margin-top:2px;vertical-align:middle"></a>`;
+    else if(r.photoTaken) note+=` <span class="pill yes">已拍照</span>`;
+    html+=`<tr><td>${t}</td><td><b>${r.p}%</b><br><span style="color:var(--mut);font-size:11px">合计 ${r.raw}%</span></td><td>${r.threshold}%</td><td><span class="tag">${r.mode}</span></td><td>${statusPill(r)}</td><td>${note}</td><td><details><summary>数据</summary><pre>${escapeHtml(JSON.stringify(r,null,2))}</pre></details></td></tr>`;
+  }
+  html+="</tbody></table>"; el.innerHTML=html;
+}
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+$("export").addEventListener("click", ()=>{
+  const blob=new Blob([JSON.stringify(triggers,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`eating-triggers-${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+});
+$("clear").addEventListener("click", ()=>{ if(confirm("清空所有触发记录？")){ triggers=[]; saveStore(); renderLogs(); } });
+
+// ---------- 真机传感器 ----------
+$("startSensors").addEventListener("click", startSensors);
+
+async function startSensors(){
+  const btn=$("startSensors"); btn.disabled=true; btn.textContent="启动中…";
+  const log=[];
+  // 语音识别：浏览器 Web Speech API 转写，命中短语发 /eating-check 让 GPT5.5 判断
+  try{
+    const ok=startSpeech();
+    if(ok){ live.audio.ok=true; log.push("语音识别 ✓（连续中文转写）"); }
+    else { live.audio.ok=false; log.push("语音识别 ✗ "+(live.audio.lastError||"")); }
+  }catch(e){ live.audio.ok=false; log.push("语音识别 ✗ "+(e.name||e.message)); }
+
+  live.active=true;
+  btn.textContent="传感器运行中"; btn.classList.remove("pri");
+  $("sensorStatus").innerHTML=log.map(l=>`<div>${l}</div>`).join("");
+  startLoop();
+}
+
+// 语音识别：浏览器 Web Speech API 转写 → 发文本给 /eating-check 让 GPT5.5 判断
+function startSpeech(){
+  const a=live.audio;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ a.lastError="浏览器不支持 SpeechRecognition（用 Chrome/Edge/Safari）"; return false; }
+  const rec=new SR();
+  rec.lang="zh-CN"; rec.continuous=true; rec.interimResults=true;
+  rec.onstart=()=>{ a.recognizing=true; };
+  rec.onend=()=>{ a.recognizing=false; if(live.active){ try{ rec.start(); }catch(_){} } }; // 浏览器会自动停，重启续识别
+  rec.onerror=(e)=>{ a.lastError="识别:"+(e.error||"error"); };
+  rec.onresult=(e)=>{
+    let interim="", finalT="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalT+=t; else interim+=t;
+    }
+    a.interim=interim;
+    if(finalT.trim()){ a.interim=""; sendTranscript(finalT.trim()); }
+  };
+  a.sr=rec;
+  try{ rec.start(); return true; }
+  catch(e){ a.lastError="启动:"+(e.message||String(e)); return false; }
+}
+function tickAudio(){
+  const a=live.audio;
+  if(a.speechConfirmed && performance.now()-a.lastResultTs>90000){ a.speechConfirmed=false; } // 90s 无新命中则衰减
+}
+async function sendTranscript(text){
+  const a=live.audio; a.sending=true;
+  try{
+    const r=await fetch("/eating-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({transcript:text})});
+    const j=await r.json();
+    if(j.matched){ a.speechConfirmed=true; a.lastPhrase=j.phrase||""; a.lastTranscript=j.transcript||text; a.lastResultTs=performance.now(); }
+    else { a.lastTranscript=j.transcript||text; }
+    a.lastError=j.error||"";
+  }catch(e){ a.lastError=String(e); }
+  a.sending=false;
+}
+
+// 主循环
+let loopId=null;
+function startLoop(){
+  if(loopId) return;
+  const tick=()=>{
+    if(mode!=="live" || !live.active){ loopId=null; return; }
+    tickAudio(); render(); renderLiveSignals();
+    loopId=requestAnimationFrame(tick);
+  };
+  loopId=requestAnimationFrame(tick);
+}
+
+// ---------- 模拟：场景 ----------
+const SCENARIOS={
+  lunch:[
+    {mealTime:"near", history:true,  speechConfirm:false},  // 25+10 = 35%
+    {mealTime:"in",   history:true,  speechConfirm:false},  // 40+10 = 50%（上下文上限，不过阈值）
+    {mealTime:"in",   history:true,  speechConfirm:true},   // 40+10+75 = 125 → 上限 100% → 触发
+    {mealTime:"in",   history:true,  speechConfirm:true}
+  ],
+  desk:[
+    {mealTime:"none", history:false, speechConfirm:false},  // 0%
+    {mealTime:"none", history:false, speechConfirm:false},
+    {mealTime:"near", history:false, speechConfirm:false}   // 25%（无语音，不触发）
+  ]
+};
+let timer=null;
+function setState(s){ for(const k of Object.keys(s)) if(inputs[k]){ if(inputs[k].type==="checkbox") inputs[k].checked=s[k]; else inputs[k].value=s[k]; } }
+function play(name){ stopPlay(); const f=SCENARIOS[name]; let i=0; setState(f[0]); cooldownUntil=0; armed=true; render(); timer=setInterval(()=>{ i++; if(i>=f.length){ stopPlay(); return; } setState(f[i]); render(); },1400); }
+function stopPlay(){ if(timer){ clearInterval(timer); timer=null; } }
+$("playLunch").addEventListener("click",()=>play("lunch"));
+$("playDesk").addEventListener("click",()=>play("desk"));
+$("stop").addEventListener("click",stopPlay);
+$("reset").addEventListener("click",()=>{ stopPlay(); setState({mealTime:"none",history:false,speechConfirm:false}); cooldownUntil=0; armed=true; render(); });
+
+for(const k of Object.keys(inputs)){ inputs[k].addEventListener("input",render); inputs[k].addEventListener("change",render); }
+
+// ---------- 初始化 ----------
+buildTicks(); renderLogs(); render();
+</script>
+</body>
+</html>

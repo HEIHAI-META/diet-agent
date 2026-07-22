@@ -1,0 +1,1 @@
+{"root":["./vite.config.ts","./server/image.ts","./server/llm.ts","./server/plugin.ts"],"errors":true,"version":"5.9.3"}
